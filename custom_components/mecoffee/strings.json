@@ -1,0 +1,136 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Select meCoffee Device",
+        "description": "Select a discovered meCoffee PID controller to set up.",
+        "data": {
+          "address": "Device"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Confirm meCoffee Device",
+        "description": "Do you want to set up {name}?"
+      }
+    },
+    "abort": {
+      "already_configured": "Device is already configured.",
+      "no_device": "No device found.",
+      "no_devices_found": "No meCoffee devices discovered. Ensure the device is powered on and within Bluetooth range."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "boiler_temperature": {
+        "name": "Boiler temperature"
+      },
+      "setpoint_temperature": {
+        "name": "Setpoint temperature"
+      },
+      "second_sensor_temperature": {
+        "name": "Second sensor temperature"
+      },
+      "pid_power": {
+        "name": "PID power"
+      },
+      "shot_timer": {
+        "name": "Shot timer"
+      },
+      "firmware_version": {
+        "name": "Firmware version"
+      }
+    },
+    "number": {
+      "brew_temperature": {
+        "name": "Brew temperature"
+      },
+      "steam_temperature": {
+        "name": "Steam temperature"
+      },
+      "proactive_percent": {
+        "name": "Pro-active heating"
+      },
+      "pid_proportional": {
+        "name": "PID proportional (P)"
+      },
+      "pid_integral": {
+        "name": "PID integral (I)"
+      },
+      "pid_derivative": {
+        "name": "PID derivative (D)"
+      },
+      "pid_i_wind_down_min": {
+        "name": "PID I wind-down min"
+      },
+      "pid_i_wind_down_max": {
+        "name": "PID I wind-down max"
+      },
+      "pid_interval": {
+        "name": "PID polling interval"
+      },
+      "pressure_start": {
+        "name": "Pressure profiling start"
+      },
+      "pressure_end": {
+        "name": "Pressure profiling end"
+      },
+      "pressure_period": {
+        "name": "Pressure profiling period"
+      },
+      "preinfusion_pump_time": {
+        "name": "Preinfusion pump time"
+      },
+      "preinfusion_pause_time": {
+        "name": "Preinfusion pause time"
+      },
+      "max_shot_time": {
+        "name": "Max shot time"
+      },
+      "auto_shutoff": {
+        "name": "Auto shutoff time"
+      }
+    },
+    "switch": {
+      "continuous_mode": {
+        "name": "Continuous mode"
+      },
+      "preinfusion_enable": {
+        "name": "Preinfusion"
+      },
+      "preinfusion_close_valve": {
+        "name": "Preinfusion close valve"
+      },
+      "wake_enable": {
+        "name": "Wake timer"
+      },
+      "shutdown_enable": {
+        "name": "Shutdown timer"
+      },
+      "timer_power_mode": {
+        "name": "Timer power mode"
+      },
+      "power_button_flip": {
+        "name": "Power button flip"
+      }
+    },
+    "select": {
+      "output_0": {
+        "name": "Output 0 assignment"
+      },
+      "output_1": {
+        "name": "Output 1 assignment"
+      },
+      "output_2": {
+        "name": "Output 2 assignment"
+      }
+    },
+    "time": {
+      "wake_time": {
+        "name": "Wake-up time"
+      },
+      "shutdown_time": {
+        "name": "Shutdown time"
+      }
+    }
+  }
+}

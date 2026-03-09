@@ -1,0 +1,18 @@
+{
+  "domain": "mecoffee",
+  "name": "meCoffee PID",
+  "version": "0.1.0",
+  "codeowners": ["@JakobHP"],
+  "documentation": "https://github.com/JakobHP/meCoffee-HA",
+  "issue_tracker": "https://github.com/JakobHP/meCoffee-HA/issues",
+  "iot_class": "local_polling",
+  "integration_type": "device",
+  "dependencies": ["bluetooth_adapters"],
+  "requirements": ["bleak-retry-connector>=4.6.0"],
+  "bluetooth": [
+    {
+      "service_uuid": "0000ffe0-0000-1000-8000-00805f9b34fb",
+      "connectable": true
+    }
+  ]
+}
