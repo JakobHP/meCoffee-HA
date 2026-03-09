@@ -1,7 +1,7 @@
 {
   "domain": "mecoffee",
   "name": "meCoffee PID",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "config_flow": true,
   "codeowners": ["@JakobHP"],
   "documentation": "https://github.com/JakobHP/meCoffee-HA",
@@ -9,7 +9,7 @@
   "iot_class": "local_polling",
   "integration_type": "device",
   "dependencies": ["bluetooth_adapters"],
-  "requirements": ["bleak-retry-connector>=4.6.0"],
+  "requirements": [],
   "bluetooth": [
     {
       "local_name": "meCoffee*",
