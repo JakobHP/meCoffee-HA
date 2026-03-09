@@ -14,12 +14,9 @@ from typing import Any
 
 from bleak import BleakClient
 from bleak.exc import BleakError
-from bleak_retry_connector import establish_connection
+from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
-from homeassistant.components.bluetooth import (
-    HaBleakClientWrapper,
-    async_ble_device_from_address,
-)
+from homeassistant.components.bluetooth import async_ble_device_from_address
 from homeassistant.core import HomeAssistant
 
 from .const import (
@@ -132,7 +129,7 @@ class MeCoffeeDevice:
             self._init_event.clear()
 
             client = await establish_connection(
-                HaBleakClientWrapper,
+                BleakClientWithServiceCache,
                 ble_device,
                 self.name,
                 disconnected_callback=self._handle_disconnect,
