@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -37,43 +38,57 @@ SWITCH_DESCRIPTIONS: tuple[MeCoffeeSwitchDescription, ...] = (
     MeCoffeeSwitchDescription(
         key="continuous_mode",
         translation_key="continuous_mode",
+        name="Continuous mode",
         icon="mdi:infinity",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_CONTINUOUS_MODE,
     ),
     MeCoffeeSwitchDescription(
         key="preinfusion_enable",
         translation_key="preinfusion_enable",
+        name="Preinfusion",
         icon="mdi:water-pump",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_PREINFUSION_ENABLE,
     ),
     MeCoffeeSwitchDescription(
         key="preinfusion_close_valve",
         translation_key="preinfusion_close_valve",
+        name="Preinfusion close valve",
         icon="mdi:valve-closed",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_PREINFUSION_CLOSE_VALVE,
     ),
     MeCoffeeSwitchDescription(
         key="wake_enable",
         translation_key="wake_enable",
+        name="Wake timer",
         icon="mdi:alarm",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_WAKE_ENABLE,
     ),
     MeCoffeeSwitchDescription(
         key="shutdown_enable",
         translation_key="shutdown_enable",
+        name="Shutdown timer",
         icon="mdi:power-sleep",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_SHUTDOWN_ENABLE,
     ),
     MeCoffeeSwitchDescription(
         key="timer_power_mode",
         translation_key="timer_power_mode",
+        name="Timer power mode",
         icon="mdi:timer-cog",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_TIMER_POWER,
     ),
     MeCoffeeSwitchDescription(
         key="power_button_flip",
         translation_key="power_button_flip",
+        name="Power button flip",
         icon="mdi:swap-horizontal",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_POWER_FLIP,
     ),
 )

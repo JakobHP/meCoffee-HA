@@ -48,6 +48,7 @@ class BoilerTemperatureSensor(MeCoffeeSensor):
     """Sensor for boiler temperature."""
 
     _attr_translation_key = "boiler_temperature"
+    _attr_name = "Boiler temperature"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
@@ -62,6 +63,7 @@ class SetpointTemperatureSensor(MeCoffeeSensor):
     """Sensor for setpoint temperature."""
 
     _attr_translation_key = "setpoint_temperature"
+    _attr_name = "Setpoint temperature"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
@@ -76,6 +78,7 @@ class SecondSensorTemperatureSensor(MeCoffeeSensor):
     """Sensor for second sensor temperature."""
 
     _attr_translation_key = "second_sensor_temperature"
+    _attr_name = "Second sensor temperature"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
@@ -91,6 +94,7 @@ class PIDPowerSensor(MeCoffeeSensor):
     """Sensor for PID power output."""
 
     _attr_translation_key = "pid_power"
+    _attr_name = "PID power"
     _attr_device_class = SensorDeviceClass.POWER_FACTOR
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = PERCENTAGE
@@ -106,6 +110,7 @@ class ShotTimerSensor(MeCoffeeSensor):
     """Sensor for shot timer."""
 
     _attr_translation_key = "shot_timer"
+    _attr_name = "Shot timer"
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTime.SECONDS
@@ -121,6 +126,7 @@ class FirmwareVersionSensor(MeCoffeeSensor):
     """Sensor for firmware version."""
 
     _attr_translation_key = "firmware_version"
+    _attr_name = "Firmware version"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:chip"
 

@@ -9,6 +9,7 @@ from datetime import time as dt_time
 from homeassistant.components.time import TimeEntity, TimeEntityDescription
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -30,13 +31,17 @@ TIME_DESCRIPTIONS = [
     MeCoffeeTimeDescription(
         key="wake_time",
         translation_key="wake_time",
+        name="Wake-up time",
         icon="mdi:alarm",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_WAKE_TIME,
     ),
     MeCoffeeTimeDescription(
         key="shutdown_time",
         translation_key="shutdown_time",
+        name="Shutdown time",
         icon="mdi:power-sleep",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_SHUTDOWN_TIME,
     ),
 ]

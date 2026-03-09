@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -37,19 +38,25 @@ SELECT_DESCRIPTIONS: tuple[MeCoffeeSelectDescription, ...] = (
     MeCoffeeSelectDescription(
         key="output_0",
         translation_key="output_0",
+        name="Output 0 assignment",
         icon="mdi:electric-switch",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_OUTPUT_0,
     ),
     MeCoffeeSelectDescription(
         key="output_1",
         translation_key="output_1",
+        name="Output 1 assignment",
         icon="mdi:electric-switch",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_OUTPUT_1,
     ),
     MeCoffeeSelectDescription(
         key="output_2",
         translation_key="output_2",
+        name="Output 2 assignment",
         icon="mdi:electric-switch",
+        entity_category=EntityCategory.CONFIG,
         mecoffee_key=KEY_OUTPUT_2,
     ),
 )
