@@ -1,0 +1,28 @@
+{
+  "config": {
+    "title": "meCoffee",
+    "step": {
+      "user": {
+        "title": "Connect to meCoffee",
+        "description": "Enter the Bluetooth address of the meCoffee device.",
+        "data": {
+          "address": "Bluetooth Address"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to device",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  },
+  "entity": {
+    "number": {
+      "target_temperature": {
+        "name": "Target Temperature"
+      }
+    }
+  }
+}
