@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import timedelta
 from typing import Any
@@ -9,13 +10,18 @@ from typing import Any
 from bleak.exc import BleakError
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 from .mecoffee_device import MeCoffeeDevice
 
 _LOGGER = logging.getLogger(__name__)
+
+# Back-off schedule for reconnection attempts (seconds).
+# After each failed reconnect, we move to the next interval.
+# This prevents hammering a powered-off device every 10 seconds.
+_BACKOFF_SCHEDULE = [10, 30, 60, 120, 300]  # 10s, 30s, 1m, 2m, 5m max
 
 
 class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -39,6 +45,41 @@ class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.device = device
         self._first_update = True
+        self._consecutive_failures = 0
+
+        # Register for disconnect notifications from the device layer.
+        device.set_on_disconnect(self._on_device_disconnect)
+
+    @callback
+    def _on_device_disconnect(self) -> None:
+        """Handle unexpected device disconnection.
+
+        This is called from the bleak disconnect callback (runs in the
+        event loop) when the BLE link drops — typically because the
+        espresso machine was powered off.
+
+        We immediately request a coordinator refresh so that:
+          1. Entities see the UpdateFailed and go unavailable right away.
+          2. The next _async_update_data call enters the reconnect path.
+        """
+        _LOGGER.info("meCoffee device disconnected — entities will go unavailable")
+        self.async_set_updated_data(self._unavailable_data())
+
+    def _unavailable_data(self) -> dict[str, Any]:
+        """Return a data dict that represents an unavailable device.
+
+        Returning this through async_set_updated_data keeps entities
+        "available" from the coordinator's perspective (no UpdateFailed),
+        but all sensor values will be None, so HA shows them as "unknown".
+        We'll mark the coordinator as actually failed on the *next* poll
+        when reconnection fails, which flips entities to "unavailable".
+        """
+        return {
+            "settings": dict(self.device.settings),
+            "telemetry": dict(self.device.telemetry),  # already cleared
+            "firmware_version": self.device.firmware_version,
+            "legacy": self.device.legacy,
+        }
 
     @property
     def device_info(self) -> dict[str, Any]:
@@ -54,29 +95,57 @@ class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from the device.
 
-        On first update: connect and wait for init + dump.
-        On subsequent updates: the device streams telemetry continuously
-        via notifications, so we just return current state.
-        We periodically re-request a dump to keep settings fresh.
+        Connection lifecycle:
+        - If connected: return current telemetry/settings (streamed via notify).
+        - If disconnected: attempt reconnect with exponential back-off.
+        - On reconnect success: reset back-off, re-init, dump settings.
+        - On reconnect failure: raise UpdateFailed → entities go unavailable.
+          The coordinator's built-in interval keeps retrying automatically.
         """
         try:
             if not self.device.is_connected:
+                _LOGGER.debug(
+                    "Device not connected, attempting reconnect "
+                    "(attempt backoff index %d)",
+                    self._consecutive_failures,
+                )
                 await self.device.connect(self.hass)
                 await self.device.async_wait_for_init(timeout=20.0)
-                # After init, wait a bit for dump results to arrive
+
+                # Connection succeeded — reset failure tracking
+                self._consecutive_failures = 0
+                self.update_interval = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
                 self._first_update = True
+                _LOGGER.info(
+                    "Reconnected to %s — entities will become available",
+                    self.device.name,
+                )
 
             if self._first_update:
                 self._first_update = False
                 # The init sequence already sends cmd dump.
                 # Give it time to complete.
-                import asyncio
                 await asyncio.sleep(3.0)
 
-        except BleakError as err:
-            raise UpdateFailed(f"BLE connection failed: {err}") from err
-        except TimeoutError as err:
-            raise UpdateFailed(f"BLE connection timed out: {err}") from err
+        except (BleakError, TimeoutError) as err:
+            # Apply back-off: increase the poll interval so we don't
+            # spam reconnect attempts every 10s when the machine is off.
+            self._consecutive_failures += 1
+            backoff_idx = min(
+                self._consecutive_failures - 1, len(_BACKOFF_SCHEDULE) - 1
+            )
+            backoff_seconds = _BACKOFF_SCHEDULE[backoff_idx]
+            self.update_interval = timedelta(seconds=backoff_seconds)
+
+            _LOGGER.debug(
+                "Reconnect to %s failed (%s), next attempt in %ds",
+                self.device.name,
+                err,
+                backoff_seconds,
+            )
+            raise UpdateFailed(
+                f"Device unavailable (off or out of range): {err}"
+            ) from err
 
         return {
             "settings": dict(self.device.settings),

@@ -13,6 +13,7 @@ from homeassistant.components.number import (
 )
 from homeassistant.const import PERCENTAGE, UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -239,10 +240,15 @@ class MeCoffeeNumber(CoordinatorEntity[MeCoffeeCoordinator], NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         """Set the native value."""
-        await self.coordinator.device.async_set_value(
-            self.entity_description.mecoffee_key,
-            value,
-        )
+        try:
+            await self.coordinator.device.async_set_value(
+                self.entity_description.mecoffee_key,
+                value,
+            )
+        except Exception as err:
+            raise HomeAssistantError(
+                f"Failed to set {self.entity_description.key}: {err}"
+            ) from err
         self.async_write_ha_state()
 
 

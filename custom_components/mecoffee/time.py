@@ -8,6 +8,7 @@ from datetime import time as dt_time
 
 from homeassistant.components.time import TimeEntity, TimeEntityDescription
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -82,13 +83,16 @@ class MeCoffeeTime(CoordinatorEntity[MeCoffeeCoordinator], TimeEntity):
         # Convert time to seconds since midnight
         seconds = value.hour * 3600 + value.minute * 60 + value.second
 
-        # Send to device
-        await self.coordinator.device.async_set_value(
-            self.entity_description.mecoffee_key,
-            seconds,
-        )
+        try:
+            await self.coordinator.device.async_set_value(
+                self.entity_description.mecoffee_key,
+                seconds,
+            )
+        except Exception as err:
+            raise HomeAssistantError(
+                f"Failed to set {self.entity_description.key}: {err}"
+            ) from err
 
-        # Update state
         self.async_write_ha_state()
 
 

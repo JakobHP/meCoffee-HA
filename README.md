@@ -126,11 +126,44 @@ Note: This integration requires a functional Bluetooth adapter on your Home Assi
 | Wake-up time | The scheduled time of day for the machine to wake up |
 | Shutdown time | The scheduled time of day for the machine to shut down |
 
+## Connection Behavior
+
+The meCoffee PID controller is physically attached to an espresso machine that is frequently powered off. The integration is designed to handle this gracefully — no manual intervention is needed when the machine is turned on or off.
+
+### When the machine is powered off
+
+1. The BLE link drops. The integration detects this immediately via a disconnect callback.
+2. All sensor entities (temperature, PID power, shot timer) go to **unavailable** within seconds.
+3. Settings entities (numbers, switches, selects, times) retain their last-known values but show as **unavailable** after the next poll cycle fails.
+4. Attempting to change a setting while the device is off will show an error notification in the HA UI ("Failed to set …: device is not connected").
+
+### Reconnection
+
+The integration automatically retries the connection on every coordinator poll cycle, with **exponential back-off** to avoid unnecessary Bluetooth traffic:
+
+| Consecutive failures | Retry interval |
+| :--- | :--- |
+| 1 | 10 seconds |
+| 2 | 30 seconds |
+| 3 | 1 minute |
+| 4 | 2 minutes |
+| 5+ | 5 minutes |
+
+### When the machine is powered back on
+
+1. The BLE module advertises again.
+2. On the next retry, the integration connects, sends the initialization sequence (clock sync, firmware version query, settings dump), and resumes telemetry streaming.
+3. All entities become **available** again with live data. The retry interval resets to the normal 10-second poll.
+
+No restart of Home Assistant or the integration is required.
+
 ## Troubleshooting
 
-- **Device not found**: Check that the meCoffee PID is powered on and within Bluetooth range. Ensure it is not currently connected to the meBarista app or another Bluetooth client.
-- **Connection drops**: Bluetooth signal stability can vary. Consider using a Bluetooth proxy if the distance between your host and the machine is significant. Check the standard Home Assistant Bluetooth integration logs for adapter issues.
-- **Settings not updating**: The integration reads settings via a command dump upon initial connection. Telemetry (temperature, timer) is streamed in real-time while connected. If settings appear out of sync, try toggling the entity or restarting the integration.
+- **Device not found**: Check that the meCoffee PID is powered on and within Bluetooth range. Ensure it is not currently connected to the meBarista app or another Bluetooth client. Only one BLE central can connect to the HM-10 module at a time.
+- **Entities stuck as unavailable**: Check the Home Assistant log for `meCoffee` entries. Common causes: the machine is off (expected), the Bluetooth adapter is not working, or another client has the connection. The integration will reconnect automatically once the device is available.
+- **Settings not updating**: The integration reads all settings via a command dump upon initial connection. Telemetry (temperature, PID output, shot timer) is streamed in real-time while connected. If settings appear out of sync, try reloading the integration from Settings → Devices & Services.
+- **"Failed to set …" errors**: This means you tried to change a setting while the device is off or out of range. Wait for the machine to power on and the entities to become available before making changes.
+- **Frequent disconnects while the machine is on**: Bluetooth signal strength may be insufficient. Consider using an [ESPHome Bluetooth Proxy](https://esphome.io/components/bluetooth_proxy.html) placed closer to the espresso machine.
 
 ## Credits
 

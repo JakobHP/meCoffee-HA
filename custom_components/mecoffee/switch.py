@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -107,18 +108,28 @@ class MeCoffeeSwitch(CoordinatorEntity[MeCoffeeCoordinator], SwitchEntity):
 
     async def async_turn_on(self, **kwargs) -> None:
         """Turn on the switch."""
-        await self.coordinator.device.async_set_value(
-            self.entity_description.mecoffee_key,
-            True,
-        )
+        try:
+            await self.coordinator.device.async_set_value(
+                self.entity_description.mecoffee_key,
+                True,
+            )
+        except Exception as err:
+            raise HomeAssistantError(
+                f"Failed to turn on {self.entity_description.key}: {err}"
+            ) from err
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs) -> None:
         """Turn off the switch."""
-        await self.coordinator.device.async_set_value(
-            self.entity_description.mecoffee_key,
-            False,
-        )
+        try:
+            await self.coordinator.device.async_set_value(
+                self.entity_description.mecoffee_key,
+                False,
+            )
+        except Exception as err:
+            raise HomeAssistantError(
+                f"Failed to turn off {self.entity_description.key}: {err}"
+            ) from err
         self.async_write_ha_state()
 
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from typing import Any
 
 from bleak import BleakClient
@@ -19,6 +20,7 @@ from homeassistant.components.bluetooth import (
     HaBleakClientWrapper,
     async_ble_device_from_address,
 )
+from homeassistant.core import HomeAssistant
 
 from .const import (
     BOOLEAN_KEYS,
@@ -52,6 +54,8 @@ class MeCoffeeDevice:
         self._client: BleakClient | None = None
         self._connect_lock = asyncio.Lock()
         self._operation_lock = asyncio.Lock()
+        self._hass: HomeAssistant | None = None
+        self._on_disconnect_callback: Callable[[], None] | None = None
 
         # Receive buffer for newline-delimited protocol
         self._rx_buffer = ""
@@ -76,16 +80,47 @@ class MeCoffeeDevice:
         self._dump_keys_received: set[str] = set()
         self._awaiting_dump = False
 
+    def set_on_disconnect(self, callback: Callable[[], None]) -> None:
+        """Register a callback invoked when the device unexpectedly disconnects."""
+        self._on_disconnect_callback = callback
+
     @property
     def is_connected(self) -> bool:
         """Return True if currently connected."""
         return self._client is not None and self._client.is_connected
 
-    async def connect(self, hass: Any) -> None:
+    def _clear_telemetry(self) -> None:
+        """Reset telemetry values so entities report unavailable."""
+        self.telemetry = {
+            "boiler_temp": None,
+            "setpoint_temp": None,
+            "second_sensor_temp": None,
+            "pid_power": None,
+            "shot_timer": None,
+        }
+
+    def _handle_disconnect(self, _client: BleakClient) -> None:
+        """Handle unexpected BLE disconnection (e.g. device powered off)."""
+        _LOGGER.info(
+            "Device %s (%s) disconnected", self.name, self.address
+        )
+        self._client = None
+        self._initialized = False
+        self._init_event.clear()
+        self._rx_buffer = ""
+        self._line_count = 0
+        self._clear_telemetry()
+
+        if self._on_disconnect_callback is not None:
+            self._on_disconnect_callback()
+
+    async def connect(self, hass: HomeAssistant) -> None:
         """Establish BLE connection and start notifications."""
         async with self._connect_lock:
             if self.is_connected:
                 return
+
+            self._hass = hass
 
             ble_device = async_ble_device_from_address(hass, self.address, connectable=True)
             if ble_device is None:
@@ -100,6 +135,7 @@ class MeCoffeeDevice:
                 HaBleakClientWrapper,
                 ble_device,
                 self.name,
+                disconnected_callback=self._handle_disconnect,
             )
 
             try:
@@ -127,6 +163,7 @@ class MeCoffeeDevice:
                 finally:
                     self._client = None
                     self._initialized = False
+                    self._clear_telemetry()
 
     async def _write(self, data: str) -> None:
         """Write a string to the BLE characteristic."""
@@ -171,7 +208,10 @@ class MeCoffeeDevice:
         # Schedule initialization after receiving enough startup lines
         if self._line_count == _INIT_LINE_COUNT and not self._initialized:
             self._initialized = True
-            asyncio.get_event_loop().create_task(self._send_init())
+            if self._hass is not None:
+                self._hass.async_create_task(self._send_init())
+            else:
+                asyncio.get_event_loop().create_task(self._send_init())
             return
 
         if line.endswith("NOT OK"):
@@ -345,7 +385,15 @@ class MeCoffeeDevice:
         return SCALE_FACTORS.get(key, 1.0)
 
     async def async_set_value(self, key: str, human_value: float | int | bool | str) -> None:
-        """Set a value on the device."""
+        """Set a value on the device.
+
+        Raises BleakError if the device is not connected.
+        """
+        if not self.is_connected:
+            raise BleakError(
+                f"Cannot set {key}: device {self.name} is not connected"
+            )
+
         async with self._operation_lock:
             wire_value = self.encode_value(key, human_value)
             await self._write(f"cmd set {key} {wire_value}\n")

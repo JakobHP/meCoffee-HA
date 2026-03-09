@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -85,12 +86,18 @@ class MeCoffeeSelect(CoordinatorEntity[MeCoffeeCoordinator], SelectEntity):
     async def async_select_option(self, option: str) -> None:
         """Set the selected option."""
         code = OPTION_TO_CODE.get(option)
-        if code is not None:
+        if code is None:
+            return
+        try:
             await self.coordinator.device.async_set_value(
                 self.entity_description.mecoffee_key,
                 code,
             )
-            self.async_write_ha_state()
+        except Exception as err:
+            raise HomeAssistantError(
+                f"Failed to set {self.entity_description.key}: {err}"
+            ) from err
+        self.async_write_ha_state()
 
 
 async def async_setup_entry(
