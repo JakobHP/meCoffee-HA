@@ -281,6 +281,13 @@ class MeCoffeeDevice:
             return
 
         key = parts[2]
+
+        # Some firmware versions send "pd1imn" instead of "pd1imm" for the
+        # PID I wind-down minimum setting (the Android app has the same
+        # discrepancy between preference.xml and MainActivity.java).
+        if key == "pd1imn":
+            key = "pd1imm"
+
         raw_value = parts[3].replace(".00", "")
 
         try:
