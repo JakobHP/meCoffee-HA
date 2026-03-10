@@ -88,7 +88,7 @@ class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             self._consecutive_failures = 0
             self.update_interval = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
-            self.async_request_refresh()
+            self.hass.async_create_task(self.async_request_refresh())
 
         entry.async_on_unload(
             async_register_callback(
