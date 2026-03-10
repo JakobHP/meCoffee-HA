@@ -75,6 +75,10 @@ class MeCoffeeDevice:
         self.firmware_version: str | None = None
         self.legacy: bool = False
 
+        # Activity tracking for local auto-shutoff.
+        # Updated on shot events, setting writes, and initial connection.
+        self.last_activity: float = time.monotonic()
+
         # Dump synchronization
         self._dump_event = asyncio.Event()
         self._dump_keys_received: set[str] = set()
@@ -91,6 +95,15 @@ class MeCoffeeDevice:
         connected) so the coordinator can push real-time entity updates.
         """
         self._on_telemetry_callback = callback
+
+    def record_activity(self) -> None:
+        """Record user activity to reset the local auto-shutoff timer.
+
+        Called on shot events and user-initiated setting changes.
+        NOT called on passive telemetry (tmp, pid) which would defeat
+        the purpose of the inactivity timer.
+        """
+        self.last_activity = time.monotonic()
 
     @property
     def is_connected(self) -> bool:
@@ -160,6 +173,7 @@ class MeCoffeeDevice:
                 raise
 
             self._client = client
+            self.record_activity()
             _LOGGER.info("Connected to %s (%s)", self.name, self.address)
 
     async def disconnect(self) -> None:
@@ -373,10 +387,12 @@ class MeCoffeeDevice:
                 self.telemetry["shot_timer"] = 0.0
                 self.telemetry["shot_timer_active"] = True
                 self.telemetry["shot_timer_start"] = time.monotonic()
+                self.record_activity()
             else:
                 # Shot ended — use firmware-measured duration
                 self.telemetry["shot_timer"] = millis / 1000.0
                 self.telemetry["shot_timer_active"] = False
+                self.record_activity()
         except (ValueError, IndexError):
             _LOGGER.debug("Failed to parse shot timer: %s", line)
             return
@@ -422,10 +438,19 @@ class MeCoffeeDevice:
             return LEGACY_SCALE_FACTORS[key]
         return SCALE_FACTORS.get(key, 1.0)
 
-    async def async_set_value(self, key: str, human_value: float | int | bool | str) -> None:
+    async def async_set_value(
+        self,
+        key: str,
+        human_value: float | int | bool | str,
+        *,
+        _internal: bool = False,
+    ) -> None:
         """Set a value on the device.
 
         Raises BleakError if the device is not connected.
+
+        The _internal flag is used by the auto-shutoff sequence to avoid
+        resetting the activity timer when it manipulates timer settings.
         """
         if not self.is_connected:
             raise BleakError(
@@ -443,6 +468,9 @@ class MeCoffeeDevice:
                 self.settings[key] = str(human_value)
             else:
                 self.settings[key] = int(round(float(human_value) * self._get_scale(key)))
+
+        if not _internal:
+            self.record_activity()
 
     async def async_request_dump(self) -> None:
         """Request a full settings dump from the device."""

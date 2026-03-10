@@ -161,6 +161,22 @@ The integration automatically retries the connection on every coordinator poll c
 
 No restart of Home Assistant or the integration is required. You will typically see live data within a few seconds of flipping the power switch.
 
+### Auto-shutoff (local enforcement)
+
+The meCoffee firmware has a built-in inactivity timer (`tmrosd`) that is supposed to shut off the machine after a configurable number of idle minutes. However, **the firmware counts an active BLE connection as activity**, which means the timer never fires while this integration (or the meBarista app) is connected — the machine stays on indefinitely.
+
+This integration works around the problem by **enforcing the auto-shutoff locally**. It tracks real user activity — shots pulled, settings changed — and ignores passive telemetry. When idle time exceeds the configured `tmrosd` value, the integration triggers a shutdown using the firmware's scheduled-shutdown timer:
+
+1. The current shutdown-time and shutdown-enable settings are saved.
+2. A shutdown time is set to the next whole minute.
+3. The shutdown timer is enabled.
+4. The integration polls PID power output until it drops to 0% (confirming the firmware shut off the boiler), with a 90-second hard timeout.
+5. The original shutdown timer settings are restored.
+
+If the device disconnects during the sequence (e.g., the firmware also powers off the BLE module), the saved settings are restored automatically on the next reconnect.
+
+**No configuration is needed.** If `tmrosd` (Auto Shutoff) is set to a non-zero value, the local enforcement is active automatically. Set it to 0 to disable auto-shutoff entirely.
+
 ## Troubleshooting
 
 - **Device not found**: Check that the meCoffee PID is powered on and within Bluetooth range. Ensure it is not currently connected to the meBarista app or another Bluetooth client. Only one BLE central can connect to the HM-10 module at a time.
@@ -321,7 +337,9 @@ A safety limit — when the shot reaches this duration, the firmware cuts the pu
 - **Range**: 0–120 min, step 1 — **Default**: 60 min
 - **Wire format**: sent as-is (minutes)
 
-An **inactivity timer**. If the machine sits idle (no shots pulled, no settings changed) for this many minutes, the firmware shuts off the machine completely. Setting to 0 disables the timer. This is independent of both the scheduled shutdown timer and continuous mode — `tmrosd` is a complete machine shutdown trigger based on inactivity, while `tmpcntns` only affects how the boiler heater is driven.
+An **inactivity timer**. If the machine sits idle (no shots pulled, no settings changed) for this many minutes, the machine shuts off. Setting to 0 disables the timer. This is independent of both the scheduled shutdown timer and continuous mode — `tmrosd` is a complete machine shutdown trigger based on inactivity, while `tmpcntns` only affects how the boiler heater is driven.
+
+> **Note:** The firmware's built-in `tmrosd` timer does not work while a BLE client is connected (it treats the connection itself as activity). This integration enforces the timer locally by tracking real user activity and triggering a shutdown via the firmware's scheduled-shutdown mechanism when the idle period is exceeded. See [Auto-shutoff (local enforcement)](#auto-shutoff-local-enforcement) for details.
 
 ---
 
