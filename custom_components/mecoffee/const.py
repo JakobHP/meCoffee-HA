@@ -123,10 +123,12 @@ DEFAULTS: dict[str, float | int | bool | str] = {
 # ── Output mapping labels ─────────────────────────────────────────────
 # Device stores output assignment as ASCII char codes.
 OUTPUT_OPTIONS: dict[str, str] = {
-    "112": "Pump",      # 'p'
-    "98": "Boiler",     # 'b'
-    "118": "Valve",     # 'v'
-    "0": "Disabled",
+    "112": "Pump",       # 'p'
+    "98": "Boiler",      # 'b'
+    "118": "Valve",      # 'v'
+    "105": "Indicator",  # 'i'
+    "103": "Grinder",    # 'g'
+    "110": "Disabled",   # 'n'
 }
 
 # ── Boolean keys ───────────────────────────────────────────────────────
