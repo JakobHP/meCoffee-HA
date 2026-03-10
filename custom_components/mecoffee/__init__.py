@@ -32,6 +32,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: MeCoffeeConfigEntry) -> 
     device = MeCoffeeDevice(address, name)
     coordinator = MeCoffeeCoordinator(hass, entry, device)
 
+    # Listen for BLE advertisements so we can instantly reconnect
+    # when the machine is powered on (instead of waiting for backoff).
+    coordinator.register_advertisement_callback(entry)
+
     # Store coordinator on the entry for platform access.
     entry.runtime_data = coordinator
 

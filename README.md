@@ -153,11 +153,12 @@ The integration automatically retries the connection on every coordinator poll c
 
 ### When the machine is powered back on
 
-1. The BLE module advertises again.
-2. On the next retry, the integration connects, sends the initialization sequence (clock sync, firmware version query, settings dump), and resumes telemetry streaming.
-3. All entities become **available** again with live data. The retry interval resets to the normal 10-second poll.
+1. The BLE module starts advertising again.
+2. The integration detects the advertisement **immediately** via a registered Bluetooth callback, resets the reconnection backoff to zero, and triggers an instant coordinator refresh.
+3. Within seconds, the integration connects, sends the initialization sequence (clock sync, firmware version query, settings dump), and resumes telemetry streaming.
+4. All entities become **available** again with live data. The retry interval resets to the normal 10-second poll.
 
-No restart of Home Assistant or the integration is required.
+No restart of Home Assistant or the integration is required. You will typically see live data within a few seconds of flipping the power switch.
 
 ## Troubleshooting
 

@@ -9,6 +9,13 @@ from typing import Any
 
 from bleak.exc import BleakError
 
+from homeassistant.components.bluetooth import (
+    BluetoothCallbackMatcher,
+    BluetoothChange,
+    BluetoothScanningMode,
+    BluetoothServiceInfoBleak,
+    async_register_callback,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -49,6 +56,48 @@ class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         # Register for disconnect notifications from the device layer.
         device.set_on_disconnect(self._on_device_disconnect)
+
+    def register_advertisement_callback(self, entry: ConfigEntry) -> None:
+        """Register a BLE advertisement callback for instant reconnection.
+
+        When the meCoffee device starts advertising (machine powered on),
+        this callback fires and immediately resets the reconnection backoff,
+        triggering an instant coordinator refresh instead of waiting up to
+        5 minutes for the next scheduled retry.
+
+        Must be called after the coordinator is created.  The unregister
+        callable is attached to the config entry via ``async_on_unload``
+        so it is automatically removed when the entry is unloaded.
+        """
+        @callback
+        def _on_advertisement(
+            service_info: BluetoothServiceInfoBleak,
+            change: BluetoothChange,
+        ) -> None:
+            """Handle a BLE advertisement from the meCoffee device."""
+            if self.device.is_connected:
+                return  # Already connected — nothing to do.
+
+            if self._consecutive_failures == 0:
+                return  # Not in backoff — normal polling will handle it.
+
+            _LOGGER.info(
+                "meCoffee advertisement detected while disconnected "
+                "(backoff index %d) — resetting backoff for instant reconnect",
+                self._consecutive_failures,
+            )
+            self._consecutive_failures = 0
+            self.update_interval = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
+            self.async_request_refresh()
+
+        entry.async_on_unload(
+            async_register_callback(
+                self.hass,
+                _on_advertisement,
+                BluetoothCallbackMatcher(address=self.device.address),
+                BluetoothScanningMode.PASSIVE,
+            )
+        )
 
     @callback
     def _on_device_disconnect(self) -> None:
