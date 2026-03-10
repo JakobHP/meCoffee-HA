@@ -15,14 +15,15 @@ For more information about the hardware, visit the official website at [https://
 ## Features
 
 - BLE auto-discovery for easy setup
+- Real-time sensor updates pushed via BLE notifications (~1/second)
 - Real-time monitoring of boiler temperature and PID power output
+- Live shot timer that counts up during extraction
 - Precise PID tuning and temperature setpoint control
-- Integrated shot timer
 - Full preinfusion control (pump time, pause time, and valve management)
 - Pressure profiling with configurable start, end, and period settings
 - Automated wake and shutdown scheduling
 - Hardware output mapping for pump, boiler, and valve
-- Support for both modern and legacy V4 firmware versions
+- Instant reconnection when the machine powers on
 
 ## Installation
 
@@ -60,7 +61,7 @@ Note: This integration requires a functional Bluetooth adapter on your Home Assi
 | Setpoint temperature | Active target temperature from the PID | °C |
 | Second sensor temperature | Auxiliary temperature probe (disabled by default) | °C |
 | PID power | Current power output to the heater | % |
-| Shot timer | Duration of the most recent or active shot | s |
+| Shot timer | Live counting timer during a shot; final firmware-measured duration after | s |
 | Firmware version | Device firmware identifier (diagnostic) | — |
 
 ### Numbers
@@ -156,7 +157,7 @@ The integration automatically retries the connection on every coordinator poll c
 1. The BLE module starts advertising again.
 2. The integration detects the advertisement **immediately** via a registered Bluetooth callback, resets the reconnection backoff to zero, and triggers an instant coordinator refresh.
 3. Within seconds, the integration connects, sends the initialization sequence (clock sync, firmware version query, settings dump), and resumes telemetry streaming.
-4. All entities become **available** again with live data. The retry interval resets to the normal 10-second poll.
+4. All entities become **available** again with live data.
 
 No restart of Home Assistant or the integration is required. You will typically see live data within a few seconds of flipping the power switch.
 
@@ -202,11 +203,11 @@ All settings are sent over BLE as newline-delimited text commands: `cmd set <key
 
 #### PID Power
 - **Protocol line**: `pid <P> <I> <D> [<extra>]` — `(P + I + D + extra) / 65535 × 100` = %
-- The current percentage of power being applied to the boiler heater. The four terms (Proportional, Integral, Derivative, and an optional feed-forward offset) are summed and normalized against the 16-bit PWM maximum (65535 = 0xFFFF = 100%). At idle near setpoint you'll see ~5–20%. During warm-up: 100%. During a shot, it spikes as the pro-active boost kicks in.
+- The current percentage of power being applied to the boiler heater. Displays **0%** on connect until the first `pid` line arrives (never "Unknown"). The four terms (Proportional, Integral, Derivative, and an optional feed-forward offset) are summed and normalized against the 16-bit PWM maximum (65535 = 0xFFFF = 100%). At idle near setpoint you'll see ~5–20%. During warm-up: 100%. During a shot, it spikes as the pro-active boost kicks in.
 
 #### Shot Timer
 - **Protocol line**: `sht <state> <millis>` — `millis ÷ 1000` = seconds
-- The duration of the current or most recent espresso shot. The firmware sends `sht x 0` when the pump starts and `sht x <elapsed_ms>` when the pump stops. This entity reports the raw firmware elapsed time. If preinfusion is enabled, the total time includes the preinfusion pause — the Android app subtracts the pause to show "effective extraction time," but this integration reports the full duration.
+- Displays **0** when idle (never "Unknown"). When a shot starts, the entity counts up in real-time at 1-second resolution using a client-side timer. When the shot ends, it locks to the firmware-reported duration. If preinfusion is enabled, the total time includes the preinfusion pause — the Android app subtracts the pause to show "effective extraction time," but this integration reports the full duration.
 
 #### Firmware Version
 - **Protocol line**: Response to `cmd uname OK` — e.g. `meCoffee pcb V9 30 149 12`
