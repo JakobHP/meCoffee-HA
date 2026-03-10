@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -11,10 +12,13 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import PERCENTAGE, UnitOfTemperature, UnitOfTime
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from datetime import timedelta
 
 from . import MeCoffeeConfigEntry
 from .coordinator import MeCoffeeCoordinator
@@ -102,12 +106,21 @@ class PIDPowerSensor(MeCoffeeSensor):
 
     @property
     def native_value(self) -> float | None:
-        """Return the PID power."""
-        return self.coordinator.device.telemetry.get("pid_power")
+        """Return the PID power, defaulting to 0 before first pid line."""
+        value = self.coordinator.device.telemetry.get("pid_power")
+        if value is None and self.coordinator.device.is_connected:
+            return 0.0
+        return value
 
 
 class ShotTimerSensor(MeCoffeeSensor):
-    """Sensor for shot timer."""
+    """Sensor for shot timer with client-side counting.
+
+    While a shot is active, a 1-second interval timer ticks the displayed
+    value up using monotonic clock math.  When the shot ends, the sensor
+    locks to the firmware-reported duration.  Defaults to 0.0 (not Unknown)
+    until the first shot is pulled.
+    """
 
     _attr_translation_key = "shot_timer"
     _attr_name = "Shot timer"
@@ -115,11 +128,72 @@ class ShotTimerSensor(MeCoffeeSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTime.SECONDS
     _attr_icon = "mdi:timer"
+    _attr_suggested_display_precision = 1
+
+    def __init__(
+        self,
+        coordinator: MeCoffeeCoordinator,
+        key: str,
+    ) -> None:
+        """Initialize the shot timer sensor."""
+        super().__init__(coordinator, key)
+        self._cancel_timer: CALLBACK_TYPE | None = None
+        self._was_active = False
 
     @property
-    def native_value(self) -> float | None:
-        """Return the shot timer."""
-        return self.coordinator.device.telemetry.get("shot_timer")
+    def native_value(self) -> float:
+        """Return the shot timer value.
+
+        While a shot is active, computes elapsed time from the monotonic
+        start timestamp.  Otherwise returns the last firmware-reported
+        duration (or 0.0 if no shot has been pulled yet).
+        """
+        telemetry = self.coordinator.device.telemetry
+        if telemetry.get("shot_timer_active"):
+            elapsed = time.monotonic() - telemetry.get("shot_timer_start", 0.0)
+            return round(elapsed, 1)
+        value = telemetry.get("shot_timer")
+        return value if value is not None else 0.0
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle coordinator data update — start/stop the tick timer."""
+        active = self.coordinator.device.telemetry.get("shot_timer_active", False)
+
+        if active and not self._was_active:
+            # Shot just started — begin ticking every second
+            self._start_tick_timer()
+        elif not active and self._was_active:
+            # Shot just ended — stop ticking
+            self._stop_tick_timer()
+
+        self._was_active = active
+        super()._handle_coordinator_update()
+
+    def _start_tick_timer(self) -> None:
+        """Start a 1-second interval to update the displayed elapsed time."""
+        self._stop_tick_timer()
+        self._cancel_timer = async_track_time_interval(
+            self.hass,
+            self._tick,
+            timedelta(seconds=1),
+        )
+
+    def _stop_tick_timer(self) -> None:
+        """Cancel the tick timer if running."""
+        if self._cancel_timer is not None:
+            self._cancel_timer()
+            self._cancel_timer = None
+
+    @callback
+    def _tick(self, _now: Any) -> None:
+        """Update the sensor display on each tick."""
+        self.async_write_ha_state()
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up the tick timer when the entity is removed."""
+        self._stop_tick_timer()
+        await super().async_will_remove_from_hass()
 
 
 class FirmwareVersionSensor(MeCoffeeSensor):

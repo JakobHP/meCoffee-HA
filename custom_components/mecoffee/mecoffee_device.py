@@ -67,8 +67,10 @@ class MeCoffeeDevice:
             "boiler_temp": None,
             "setpoint_temp": None,
             "second_sensor_temp": None,
-            "pid_power": None,
-            "shot_timer": None,
+            "pid_power": 0.0,
+            "shot_timer": 0.0,
+            "shot_timer_active": False,
+            "shot_timer_start": 0.0,  # monotonic timestamp
         }
         self.firmware_version: str | None = None
         self.legacy: bool = False
@@ -103,6 +105,8 @@ class MeCoffeeDevice:
             "second_sensor_temp": None,
             "pid_power": None,
             "shot_timer": None,
+            "shot_timer_active": False,
+            "shot_timer_start": 0.0,
         }
 
     def _handle_disconnect(self, _client: BleakClient) -> None:
@@ -351,7 +355,13 @@ class MeCoffeeDevice:
             self._on_telemetry_callback()
 
     def _parse_shot_timer(self, line: str) -> None:
-        """Parse shot timer: 'sht <state> <millis>'."""
+        """Parse shot timer: 'sht <state> <millis>'.
+
+        When millis == 0, a shot has started — we record the monotonic
+        timestamp so the sensor entity can count up in real-time.
+        When millis > 0, the shot has ended and millis is the total
+        firmware-measured duration.
+        """
         parts = line.split()
         if len(parts) < 3:
             return
@@ -361,9 +371,12 @@ class MeCoffeeDevice:
             if millis == 0:
                 # Shot started
                 self.telemetry["shot_timer"] = 0.0
+                self.telemetry["shot_timer_active"] = True
+                self.telemetry["shot_timer_start"] = time.monotonic()
             else:
-                # Shot ended, millis is duration
+                # Shot ended — use firmware-measured duration
                 self.telemetry["shot_timer"] = millis / 1000.0
+                self.telemetry["shot_timer_active"] = False
         except (ValueError, IndexError):
             _LOGGER.debug("Failed to parse shot timer: %s", line)
             return
