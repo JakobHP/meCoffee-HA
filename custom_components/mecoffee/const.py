@@ -19,7 +19,7 @@ PLATFORMS: list[str] = [
 ]
 
 # Connection
-DEFAULT_SCAN_INTERVAL = 10  # seconds between polls
+DEFAULT_SCAN_INTERVAL = 5  # seconds between polls
 DISCONNECT_DELAY = 60  # seconds before disconnecting after last update
 
 # ── Protocol command keys ──────────────────────────────────────────────
