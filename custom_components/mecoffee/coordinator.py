@@ -125,8 +125,13 @@ class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         sht line is parsed (~1/second while connected).  Pushes the latest
         data to all entities immediately, giving real-time sensor updates
         without waiting for the coordinator's poll interval.
+
+        We update self.data directly and notify listeners instead of calling
+        async_set_updated_data(), which logs a misleading "Manually updated"
+        debug line on every push (~1/second).
         """
-        self.async_set_updated_data(self._build_data())
+        self.data = self._build_data()
+        self.async_update_listeners()
 
     def _build_data(self) -> dict[str, Any]:
         """Build the coordinator data dict from current device state."""
