@@ -70,6 +70,7 @@ class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # timer trick when the idle period exceeds the configured tmrosd.
         self._auto_shutoff_running = False
         self._cancel_idle_check: CALLBACK_TYPE | None = None
+        self._last_pid_power: float | None = None
         # Saved timer settings to restore after the shutdown sequence.
         self._saved_shutdown_time: int | None = None
         self._saved_shutdown_enable: bool | None = None
@@ -151,6 +152,19 @@ class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         async_set_updated_data(), which logs a misleading "Manually updated"
         debug line on every push (~1/second).
         """
+        # Detect boiler power-on transition (0 → non-zero) and record
+        # activity so the auto-shutoff timer starts fresh.
+        pid_power = self.device.telemetry.get("pid_power")
+        if pid_power is not None and pid_power > 0.0:
+            if self._last_pid_power is not None and self._last_pid_power == 0.0:
+                _LOGGER.debug(
+                    "Boiler powered on (PID power %.1f%%) — "
+                    "resetting auto-shutoff timer",
+                    pid_power,
+                )
+                self.device.record_activity()
+        self._last_pid_power = pid_power
+
         self.data = self._build_data()
         self.async_update_listeners()
 
