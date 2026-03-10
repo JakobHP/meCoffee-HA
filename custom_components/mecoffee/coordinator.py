@@ -281,6 +281,11 @@ class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not self.device.is_connected:
             return
 
+        # Don't trigger if the boiler is already off.
+        pid_power = self.device.telemetry.get("pid_power")
+        if pid_power is not None and pid_power == 0.0:
+            return
+
         # Read the configured auto-shutoff time (minutes).
         shutoff_minutes = self.device.get_scaled_value(KEY_AUTO_SHUTOFF)
         if shutoff_minutes is None or int(shutoff_minutes) == 0:
