@@ -53,6 +53,7 @@ class MeCoffeeDevice:
         self._operation_lock = asyncio.Lock()
         self._hass: HomeAssistant | None = None
         self._on_disconnect_callback: Callable[[], None] | None = None
+        self._on_telemetry_callback: Callable[[], None] | None = None
 
         # Receive buffer for newline-delimited protocol
         self._rx_buffer = ""
@@ -80,6 +81,14 @@ class MeCoffeeDevice:
     def set_on_disconnect(self, callback: Callable[[], None]) -> None:
         """Register a callback invoked when the device unexpectedly disconnects."""
         self._on_disconnect_callback = callback
+
+    def set_on_telemetry(self, callback: Callable[[], None]) -> None:
+        """Register a callback invoked when new telemetry data arrives.
+
+        This fires on every parsed tmp, pid, or sht line (~1/second while
+        connected) so the coordinator can push real-time entity updates.
+        """
+        self._on_telemetry_callback = callback
 
     @property
     def is_connected(self) -> bool:
@@ -311,6 +320,10 @@ class MeCoffeeDevice:
                     self.telemetry["second_sensor_temp"] = None
         except (ValueError, IndexError):
             _LOGGER.debug("Failed to parse telemetry: %s", line)
+            return
+
+        if self._on_telemetry_callback is not None:
+            self._on_telemetry_callback()
 
     def _parse_pid(self, line: str) -> None:
         """Parse PID output: 'pid <P> <I> <D> [<extra>]'."""
@@ -325,6 +338,10 @@ class MeCoffeeDevice:
             self.telemetry["pid_power"] = min(power_pct, 100.0)
         except (ValueError, IndexError):
             _LOGGER.debug("Failed to parse PID: %s", line)
+            return
+
+        if self._on_telemetry_callback is not None:
+            self._on_telemetry_callback()
 
     def _parse_shot_timer(self, line: str) -> None:
         """Parse shot timer: 'sht <state> <millis>'."""
@@ -342,6 +359,10 @@ class MeCoffeeDevice:
                 self.telemetry["shot_timer"] = millis / 1000.0
         except (ValueError, IndexError):
             _LOGGER.debug("Failed to parse shot timer: %s", line)
+            return
+
+        if self._on_telemetry_callback is not None:
+            self._on_telemetry_callback()
 
     def get_scaled_value(self, key: str) -> float | int | bool | str | None:
         """Get a setting value, applying the appropriate scale factor."""

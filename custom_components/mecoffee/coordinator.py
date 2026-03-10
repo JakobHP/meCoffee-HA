@@ -57,6 +57,9 @@ class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Register for disconnect notifications from the device layer.
         device.set_on_disconnect(self._on_device_disconnect)
 
+        # Register for real-time telemetry pushes from the device layer.
+        device.set_on_telemetry(self._on_telemetry_update)
+
     def register_advertisement_callback(self, entry: ConfigEntry) -> None:
         """Register a BLE advertisement callback for instant reconnection.
 
@@ -112,20 +115,24 @@ class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
           2. The next _async_update_data call enters the reconnect path.
         """
         _LOGGER.info("meCoffee device disconnected — entities will go unavailable")
-        self.async_set_updated_data(self._unavailable_data())
+        self.async_set_updated_data(self._build_data())
 
-    def _unavailable_data(self) -> dict[str, Any]:
-        """Return a data dict that represents an unavailable device.
+    @callback
+    def _on_telemetry_update(self) -> None:
+        """Handle real-time telemetry push from the device.
 
-        Returning this through async_set_updated_data keeps entities
-        "available" from the coordinator's perspective (no UpdateFailed),
-        but all sensor values will be None, so HA shows them as "unknown".
-        We'll mark the coordinator as actually failed on the *next* poll
-        when reconnection fails, which flips entities to "unavailable".
+        Called from the BLE notification handler whenever a tmp, pid, or
+        sht line is parsed (~1/second while connected).  Pushes the latest
+        data to all entities immediately, giving real-time sensor updates
+        without waiting for the coordinator's poll interval.
         """
+        self.async_set_updated_data(self._build_data())
+
+    def _build_data(self) -> dict[str, Any]:
+        """Build the coordinator data dict from current device state."""
         return {
             "settings": dict(self.device.settings),
-            "telemetry": dict(self.device.telemetry),  # already cleared
+            "telemetry": dict(self.device.telemetry),
             "firmware_version": self.device.firmware_version,
             "legacy": self.device.legacy,
         }
@@ -196,12 +203,7 @@ class MeCoffeeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 f"Device unavailable (off or out of range): {err}"
             ) from err
 
-        return {
-            "settings": dict(self.device.settings),
-            "telemetry": dict(self.device.telemetry),
-            "firmware_version": self.device.firmware_version,
-            "legacy": self.device.legacy,
-        }
+        return self._build_data()
 
     async def async_shutdown(self) -> None:
         """Disconnect on shutdown."""
